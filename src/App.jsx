@@ -28,12 +28,11 @@ export default function LandingPage() {
     }
   ];
 
-  const features = [
-    { icon: Sparkles, text: "AI-Powered Intelligence" },
-    { icon: Zap, text: "Lightning Fast Performance" },
-    { icon: Shield, text: "Enterprise-Grade Security" }
-  ];
-
+const features = [
+  { icon: Sparkles, text: "Step-by-Step Clarity" },
+  { icon: Zap,      text: "Customized for Your Home" },
+  { icon: Shield,   text: "Every Project, Simplified" }
+];
   const handleSubmit = () => {
     if (email) {
       setIsSubmitted(true);
@@ -50,13 +49,12 @@ export default function LandingPage() {
       <nav className="fixed top-0 w-full bg-slate-900/80 backdrop-blur-lg z-50 border-b border-purple-500/20">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-            YourBrand
+            AnotherAfternoon.com
           </div>
           
           <div className="hidden md:flex items-center gap-8">
-            <a href="#features" className="hover:text-purple-400 transition-colors">Features</a>
-            <a href="#demos" className="hover:text-purple-400 transition-colors">Demos</a>
-            <a href="#pricing" className="hover:text-purple-400 transition-colors">Pricing</a>
+            <a href="/" className="hover:text-purple-400 transition-colors">Projects</a>
+            <a href="#about" className="hover:text-purple-400 transition-colors">About</a>
             <button className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full hover:shadow-lg hover:shadow-purple-500/50 transition-all">
               Sign In
             </button>
@@ -85,61 +83,41 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-20 px-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center max-w-4xl mx-auto">
-            <div className="inline-block mb-6 px-4 py-2 bg-purple-500/20 border border-purple-500/40 rounded-full text-sm">
-              🚀 Launching Something Amazing
-            </div>
-            
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-              Transform Your
-              <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent"> Workflow </span>
-              with AI
-            </h1>
-            
-            <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
-              Experience the future of productivity. Automate tasks, gain insights, and scale your business like never before.
-            </p>
+{/* Hero Section */}
+<section className="pt-32 pb-20 px-6 text-center">
+  <div className="max-w-7xl mx-auto">
+    <div className="inline-block mb-6 px-4 py-2 bg-purple-500/20 border border-purple-500/40 rounded-full text-sm">
+      🛠️ Plan · Create · Overcome · Repeat
+    </div>
 
-            {/* Sign Up Section */}
-            <div className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto mb-8">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="flex-1 px-6 py-4 rounded-full bg-slate-800/50 border border-purple-500/30 focus:border-purple-500 focus:outline-none transition-colors"
-              />
-              <button
-                onClick={handleSubmit}
-                className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all flex items-center justify-center gap-2"
-              >
-                {isSubmitted ? (
-                  <>
-                    <Check size={20} />
-                    Signed Up!
-                  </>
-                ) : (
-                  <>
-                    Get Started
-                    <ArrowRight size={20} />
-                  </>
-                )}
-              </button>
-            </div>
+    <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
+      One <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent">Afternoon</span> at a time.
+    </h1>
 
-            <div className="flex flex-wrap justify-center gap-8 text-sm text-gray-400">
-              {features.map((feature, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <feature.icon size={16} className="text-purple-400" />
-                  {feature.text}
-                </div>
-              ))}
-            </div>
-          </div>
+    <p className="text-xl text-gray-300 mb-8 max-w-2xl mx-auto">
+      Whether you’re fixing, painting, or building, Another Afternoon turns big ideas into doable weekend projects — clear, visual, and safe.
+    </p>
+
+    {/* Primary CTA */}
+    <div className="flex justify-center">
+      <button className="px-8 py-4 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all flex items-center justify-center gap-2">
+        Start Planning
+        <ArrowRight size={20} />
+      </button>
+    </div>
+
+    {/* Feature bullets under hero */}
+    <div className="mt-8 flex flex-wrap justify-center gap-8 text-sm text-gray-400">
+      {features.map((feature, idx) => (
+        <div key={idx} className="flex items-center gap-2">
+          <feature.icon size={16} className="text-purple-400" />
+          {feature.text}
         </div>
-      </section>
+      ))}
+    </div>
+  </div>
+</section>
+
 
       {/* Demos Section */}
       <section id="demos" className="py-20 px-6">
