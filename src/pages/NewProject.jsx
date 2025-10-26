@@ -1,5 +1,37 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Upload, Image, X, Clock } from "lucide-react";
+import { SignInButton, UserButton, useUser, SignedIn, SignedOut } from "@clerk/clerk-react";
+
+// ---- Header auth (inline for this page) ----
+function HeaderAuth() {
+  const { isSignedIn } = useUser();
+
+  return (
+    <>
+      <SignedOut>
+        <SignInButton mode="modal">
+          <button
+            className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+            aria-label="Sign in"
+          >
+            Sign in
+          </button>
+        </SignInButton>
+      </SignedOut>
+
+      <SignedIn>
+        <div className="flex items-center gap-3">
+          <button
+            className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+          >
+            Save Project
+          </button>
+          <UserButton appearance={{ elements: { avatarBox: "ring-2 ring-purple-500/50 rounded-full" } }} />
+        </div>
+      </SignedIn>
+    </>
+  );
+}
 
 export default function NewProject() {
   // --- Left: project info + steps ---
@@ -108,12 +140,7 @@ export default function NewProject() {
           <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
             AnotherAfternoon.com
           </div>
-          <button
-            className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full hover:shadow-lg hover:shadow-purple-500/50 transition-all"
-            title="Sign in to save (coming soon)"
-          >
-            Save Project
-          </button>
+          <HeaderAuth />
         </div>
       </nav>
 
@@ -217,9 +244,9 @@ export default function NewProject() {
                 <div className="flex justify-start">
                   <div className="bg-slate-700/50 border border-purple-500/20 rounded-2xl px-4 py-3">
                     <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                      <div className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                      <div className="w-2 h-2 rounded-full animate-bounce bg-purple-400" style={{ animationDelay: "0ms" }} />
+                      <div className="w-2 h-2 rounded-full animate-bounce bg-purple-400" style={{ animationDelay: "150ms" }} />
+                      <div className="w-2 h-2 rounded-full animate-bounce bg-purple-400" style={{ animationDelay: "300ms" }} />
                     </div>
                   </div>
                 </div>
@@ -242,6 +269,7 @@ export default function NewProject() {
                   onClick={() => fileInputRef.current?.click()}
                   className="p-3 bg-slate-700/50 border border-purple-500/30 rounded-full hover:bg-slate-700 transition-colors"
                   title="Upload images"
+                  aria-label="Upload images"
                 >
                   <Upload size={20} />
                 </button>
@@ -258,6 +286,7 @@ export default function NewProject() {
                 <button
                   onClick={handleSendMessage}
                   className="p-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+                  aria-label="Send message"
                 >
                   <Send size={20} />
                 </button>
@@ -295,6 +324,7 @@ export default function NewProject() {
                     <button
                       onClick={() => removeImage(img.id)}
                       className="absolute top-2 right-2 p-1 bg-red-500/80 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      aria-label="Remove image"
                     >
                       <X size={14} />
                     </button>
