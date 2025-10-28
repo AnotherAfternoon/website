@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Upload, Image, X, Clock } from "lucide-react";
-import { SignInButton, UserButton, useUser, SignedIn, SignedOut } from "@clerk/clerk-react";
+import { SignInButton, UserButton, useUser, SignedIn, SignedOut, useAuth } from "@clerk/clerk-react";
 
 // ---- Header auth (inline for this page) ----
 function HeaderAuth() {
@@ -35,6 +35,9 @@ function HeaderAuth() {
 
 export default function NewProject() {
   // --- Left: project info + steps ---
+  const { isSignedIn } = useUser();
+  const { getToken } = useAuth();  
+
   const [projectInfo, setProjectInfo] = useState({
     title: "New Home Project",
     description: "",
@@ -45,14 +48,8 @@ export default function NewProject() {
   const [steps, setSteps] = useState([]);
 
   // --- Center: notes/chat-like input (no AI wiring yet) ---
-  const [messages, setMessages] = useState([
-    {
-      role: "assistant",
-      content:
-        "Welcome! Describe what you'd like to build or fix, and upload a few photos. We'll outline the steps on the left.",
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState([]);
+
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const chatEndRef = useRef(null);
@@ -60,6 +57,7 @@ export default function NewProject() {
   // --- Right: media ---
   const [uploadedImages, setUploadedImages] = useState([]);
   const fileInputRef = useRef(null);
+
 
   // autoscroll chat
   useEffect(() => {
@@ -92,28 +90,63 @@ export default function NewProject() {
     }
   };
 
-  const handleSendMessage = () => {
-    const text = inputMessage.trim();
-    if (!text) return;
+  const handleSendMessage = async () => {
+  const text = inputMessage.trim();
+  if (!text) return;
 
-    const userMsg = { role: "user", content: text, timestamp: new Date() };
-    setMessages((m) => [...m, userMsg]);
-    setInputMessage("");
-    setIsTyping(true);
+  const userMsg = { role: "user", content: text, timestamp: new Date() };
+  setMessages((m) => [...m, userMsg]);
+  setInputMessage("");
 
-    // fake assistant reply (placeholder)
-    setTimeout(() => {
-      const reply = {
+  // If not signed in: just store the user's note. No AI typing, no reply, no plan updates.
+  if (!isSignedIn) {
+    return;
+  }
+
+  // Signed in: call backend agent
+  setIsTyping(true);
+  try {
+  const API_BASE = import.meta.env.VITE_API_BASE_URL;    
+  const token = await getToken?.();
+  const res = await fetch(`${API_BASE}/v1/chat`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({
+      messages: [...messages, userMsg].map(({ role, content }) => ({ role, content })),
+      imageKeys: uploadedImages.map((i) => i.id),
+      mode: "plan",
+    }),
+  });
+    if (!res.ok) throw new Error(`Agent error: ${res.status}`);
+    const data = await res.json();
+    // Expected shape (example): { reply: string, projectInfo?: {...}, steps?: [...] }
+
+    if (data.projectInfo) setProjectInfo((p) => ({ ...p, ...data.projectInfo }));
+    if (Array.isArray(data.steps)) setSteps(data.steps);
+
+    if (data.reply) {
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", content: data.reply, timestamp: new Date() },
+      ]);
+    }
+  } catch (err) {
+    // Optional: show an inline error bubble (only when signed in, since we tried to call the agent)
+    setMessages((m) => [
+      ...m,
+      {
         role: "assistant",
-        content:
-          "Noted. I’ve updated the plan where possible. Upload photos for better guidance.",
+        content: "Hmm, I couldn’t reach the project assistant just now.",
         timestamp: new Date(),
-      };
-      setMessages((m) => [...m, reply]);
-      setIsTyping(false);
-      maybeUpdatePlan(text);
-    }, 800);
-  };
+      },
+    ]);
+  } finally {
+    setIsTyping(false);
+  }
+};
 
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files || []);
@@ -220,6 +253,12 @@ export default function NewProject() {
               <p className="text-sm text-gray-400 mt-1">
                 Describe your goal and context. Upload photos for clarity.
               </p>
+              {/* NEW: signed-out hint */}
+              <SignedOut>
+                <div className="mt-3 text-xs text-gray-400">
+                  You can write notes and upload photos now. <span className="text-purple-300">Sign in to get replies.</span>
+                </div>
+              </SignedOut>              
             </div>
 
             {/* Messages */}
@@ -240,7 +279,7 @@ export default function NewProject() {
                   </div>
                 </div>
               ))}
-              {isTyping && (
+              {isSignedIn && isTyping && (
                 <div className="flex justify-start">
                   <div className="bg-slate-700/50 border border-purple-500/20 rounded-2xl px-4 py-3">
                     <div className="flex gap-1">
