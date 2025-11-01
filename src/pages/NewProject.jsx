@@ -1,11 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Upload, Image, X, Clock } from "lucide-react";
-import { SignInButton, UserButton, useUser, SignedIn, SignedOut, useAuth } from "@clerk/clerk-react";
+import { Send, Upload, Image, X, Clock, CheckCircle, Loader2 } from "lucide-react";
+import { SignInButton, UserButton, SignedIn, SignedOut, useAuth } from "@clerk/clerk-react";
+import { useNavigate } from "react-router-dom";
 
 // ---- Header auth (inline for this page) ----
-function HeaderAuth() {
-  const { isSignedIn } = useUser();
-
+function HeaderAuth({ onCreateProject, hasEnoughInfo, isCreating }) {
   return (
     <>
       <SignedOut>
@@ -22,9 +21,25 @@ function HeaderAuth() {
       <SignedIn>
         <div className="flex items-center gap-3">
           <button
-            className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+            onClick={onCreateProject}
+            disabled={!hasEnoughInfo || isCreating}
+            className={`px-6 py-2 rounded-full transition-all flex items-center gap-2 ${
+              hasEnoughInfo && !isCreating
+                ? "bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-lg hover:shadow-purple-500/50"
+                : "bg-gray-600 cursor-not-allowed opacity-50"
+            }`}
           >
-            Save Project
+            {isCreating ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />
+                Creating...
+              </>
+            ) : (
+              <>
+                <CheckCircle size={18} />
+                Create Project
+              </>
+            )}
           </button>
           <UserButton appearance={{ elements: { avatarBox: "ring-2 ring-purple-500/50 rounded-full" } }} />
         </div>
@@ -34,9 +49,9 @@ function HeaderAuth() {
 }
 
 export default function NewProject() {
-  // --- Left: project info + steps ---
-  const { isSignedIn } = useUser();
-  const { getToken } = useAuth();  
+  // --- Navigation ---
+  const navigate = useNavigate();
+  const { getToken } = useAuth();
 
   const [projectInfo, setProjectInfo] = useState({
     title: "New Home Project",
@@ -47,22 +62,26 @@ export default function NewProject() {
   });
   const [steps, setSteps] = useState([]);
 
-  // --- Center: notes/chat-like input (no AI wiring yet) ---
+  // --- Center: collect user input (no API calls) ---
   const [messages, setMessages] = useState([]);
-
   const [inputMessage, setInputMessage] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
   const chatEndRef = useRef(null);
 
   // --- Right: media ---
   const [uploadedImages, setUploadedImages] = useState([]);
   const fileInputRef = useRef(null);
 
+  // Check if user has provided enough information to create project
+  const hasEnoughInfo = messages.length > 0 || uploadedImages.length > 0;
+
+  // Track if project is being created
+  const [isCreating, setIsCreating] = useState(false);
+
 
   // autoscroll chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isTyping]);
+  }, [messages]);
 
   // revoke object URLs on unmount / change
   useEffect(() => {
@@ -71,82 +90,80 @@ export default function NewProject() {
     };
   }, [uploadedImages]);
 
-  // mock “assist” for demo – updates steps based on keywords
-  const maybeUpdatePlan = (text) => {
-    const t = text.toLowerCase();
-    if (t.includes("paint")) {
-      setProjectInfo((p) => ({
-        ...p,
-        title: "Interior Painting",
-        description: "Walls and trim refresh",
-        difficulty: "Easy–Medium",
-        estimatedTime: "1–2 afternoons",
-      }));
-      setSteps([
-        { id: 1, title: "Prep the room", details: "Move furniture, cover floors", status: "pending" },
-        { id: 2, title: "Surface prep", details: "Clean, fill holes, sand lightly", status: "pending" },
-        { id: 3, title: "Prime & paint", details: "Cut-in, roll, let dry, second coat", status: "pending" },
-      ]);
-    }
+  // Simply collect user messages - no API calls
+  const handleSendMessage = () => {
+    const text = inputMessage.trim();
+    if (!text) return;
+
+    const userMsg = { role: "user", content: text, timestamp: new Date() };
+    setMessages((m) => [...m, userMsg]);
+    setInputMessage("");
   };
 
-  const handleSendMessage = async () => {
-  const text = inputMessage.trim();
-  if (!text) return;
+  // Handle Create Project button click
+  const handleCreateProject = async () => {
+    setIsCreating(true);
 
-  const userMsg = { role: "user", content: text, timestamp: new Date() };
-  setMessages((m) => [...m, userMsg]);
-  setInputMessage("");
+    try {
+      // Get authentication token
+      const token = await getToken?.();
+      const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
-  // If not signed in: just store the user's note. No AI typing, no reply, no plan updates.
-  if (!isSignedIn) {
-    return;
-  }
+      // Collect all user input
+      const projectData = {
+        projectInfo,
+        messages: messages.map(({ role, content }) => ({ role, content })),
+        uploadedImages: uploadedImages.map(img => ({
+          id: img.id,
+          name: img.name,
+          url: img.url
+        })),
+      };
 
-  // Signed in: call backend agent
-  setIsTyping(true);
-  try {
-  const API_BASE = import.meta.env.VITE_API_BASE_URL;    
-  const token = await getToken?.();
-  const res = await fetch(`${API_BASE}/v1/chat`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({
-      messages: [...messages, userMsg].map(({ role, content }) => ({ role, content })),
-      imageKeys: uploadedImages.map((i) => i.id),
-      mode: "plan",
-    }),
-  });
-    if (!res.ok) throw new Error(`Agent error: ${res.status}`);
-    const data = await res.json();
-    // Expected shape (example): { reply: string, projectInfo?: {...}, steps?: [...] }
+      console.log("Sending project data to LLM:", projectData);
 
-    if (data.projectInfo) setProjectInfo((p) => ({ ...p, ...data.projectInfo }));
-    if (Array.isArray(data.steps)) setSteps(data.steps);
+      // Call LLM API to generate project plan
+      const res = await fetch(`${API_BASE}/v1/projects/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify(projectData),
+      });
 
-    if (data.reply) {
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", content: data.reply, timestamp: new Date() },
-      ]);
+      if (!res.ok) {
+        throw new Error(`Failed to create project: ${res.status}`);
+      }
+
+      const responseData = await res.json();
+      console.log("LLM Response:", responseData);
+
+      // Expected response format:
+      // {
+      //   projectId: string,
+      //   projectInfo: { title, description, difficulty, estimatedTime, status, ... },
+      //   steps: [{ id, title, details, completed }],
+      //   images: [{ id, url, name, caption }],
+      //   safetyChecklist: [{ id, item, checked }]
+      // }
+
+      // Navigate to ProjectDetails page with the generated project data
+      navigate(`/projects/${responseData.projectId}`, {
+        state: {
+          projectInfo: responseData.projectInfo,
+          steps: responseData.steps,
+          images: responseData.images || uploadedImages,
+          safetyChecklist: responseData.safetyChecklist,
+        },
+      });
+    } catch (error) {
+      console.error("Error creating project:", error);
+      alert("Failed to create project. Please try again.");
+    } finally {
+      setIsCreating(false);
     }
-  } catch (err) {
-    // Optional: show an inline error bubble (only when signed in, since we tried to call the agent)
-    setMessages((m) => [
-      ...m,
-      {
-        role: "assistant",
-        content: "Hmm, I couldn’t reach the project assistant just now.",
-        timestamp: new Date(),
-      },
-    ]);
-  } finally {
-    setIsTyping(false);
-  }
-};
+  };
 
   const handleImageUpload = (e) => {
     const files = Array.from(e.target.files || []);
@@ -173,7 +190,7 @@ export default function NewProject() {
           <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
             AnotherAfternoon.com
           </div>
-          <HeaderAuth />
+          <HeaderAuth onCreateProject={handleCreateProject} hasEnoughInfo={hasEnoughInfo} isCreating={isCreating} />
         </div>
       </nav>
 
@@ -251,44 +268,44 @@ export default function NewProject() {
             <div className="p-6 border-b border-purple-500/20">
               <h1 className="text-2xl font-bold">Project Notes</h1>
               <p className="text-sm text-gray-400 mt-1">
-                Describe your goal and context. Upload photos for clarity.
+                Describe your project goals and context. Upload photos for reference.
               </p>
-              {/* NEW: signed-out hint */}
               <SignedOut>
                 <div className="mt-3 text-xs text-gray-400">
-                  You can write notes and upload photos now. <span className="text-purple-300">Sign in to get replies.</span>
+                  You can write notes and upload photos now. <span className="text-purple-300">Sign in to create your project.</span>
                 </div>
-              </SignedOut>              
+              </SignedOut>
+              <SignedIn>
+                <div className="mt-3 text-xs text-purple-300">
+                  Add your project details below, then click "Create Project" to continue.
+                </div>
+              </SignedIn>
             </div>
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              {messages.map((msg, idx) => (
-                <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div
-                    className={`max-w-[70%] rounded-2xl px-4 py-3 ${
-                      msg.role === "user"
-                        ? "bg-gradient-to-r from-purple-600 to-pink-600"
-                        : "bg-slate-700/50 border border-purple-500/20"
-                    }`}
-                  >
-                    <p className="text-sm leading-relaxed">{msg.content}</p>
-                    <span className="text-xs opacity-60 mt-2 block">
-                      {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                  </div>
+              {messages.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <p className="text-sm">Start by describing your project...</p>
+                  <p className="text-xs mt-2">What do you want to build or accomplish?</p>
                 </div>
-              ))}
-              {isSignedIn && isTyping && (
-                <div className="flex justify-start">
-                  <div className="bg-slate-700/50 border border-purple-500/20 rounded-2xl px-4 py-3">
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 rounded-full animate-bounce bg-purple-400" style={{ animationDelay: "0ms" }} />
-                      <div className="w-2 h-2 rounded-full animate-bounce bg-purple-400" style={{ animationDelay: "150ms" }} />
-                      <div className="w-2 h-2 rounded-full animate-bounce bg-purple-400" style={{ animationDelay: "300ms" }} />
+              ) : (
+                messages.map((msg, idx) => (
+                  <div key={idx} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                    <div
+                      className={`max-w-[70%] rounded-2xl px-4 py-3 ${
+                        msg.role === "user"
+                          ? "bg-gradient-to-r from-purple-600 to-pink-600"
+                          : "bg-slate-700/50 border border-purple-500/20"
+                      }`}
+                    >
+                      <p className="text-sm leading-relaxed">{msg.content}</p>
+                      <span className="text-xs opacity-60 mt-2 block">
+                        {msg.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </span>
                     </div>
                   </div>
-                </div>
+                ))
               )}
               <div ref={chatEndRef} />
             </div>
