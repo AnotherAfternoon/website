@@ -1,12 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowRight, Play, Menu, X, Sparkles, Zap, Shield } from "lucide-react";
-import { Link } from "react-router-dom";
-import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
+import { Link, useNavigate } from "react-router-dom";
+import { SignedIn, SignedOut, SignInButton, UserButton, useUser } from "@clerk/clerk-react";
 
 export default function LandingPage() {
+  const navigate = useNavigate();
+  const { isSignedIn, isLoaded } = useUser();
+
   const [email, setEmail] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
+
+  // Redirect signed-in users to /projects
+  useEffect(() => {
+    if (isLoaded && isSignedIn) {
+      navigate("/projects");
+    }
+  }, [isLoaded, isSignedIn, navigate]);
 
   const demos = [
     { title: "Interactive Dashboard", description: "Real-time analytics and insights at your fingertips", thumbnail: "bg-gradient-to-br from-purple-500 to-pink-500", duration: "3:24" },
