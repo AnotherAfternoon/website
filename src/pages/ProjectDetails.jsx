@@ -10,32 +10,8 @@ import {
   Calendar,
   User
 } from "lucide-react";
-import { SignInButton, UserButton, SignedIn, SignedOut } from "@clerk/clerk-react";
 import { useNavigate, useLocation } from "react-router-dom";
-
-// Header component
-function HeaderAuth() {
-  return (
-    <>
-      <SignedOut>
-        <SignInButton mode="modal">
-          <button
-            className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full hover:shadow-lg hover:shadow-purple-500/50 transition-all"
-            aria-label="Sign in"
-          >
-            Sign in
-          </button>
-        </SignInButton>
-      </SignedOut>
-
-      <SignedIn>
-        <div className="flex items-center gap-3">
-          <UserButton appearance={{ elements: { avatarBox: "ring-2 ring-purple-500/50 rounded-full" } }} />
-        </div>
-      </SignedIn>
-    </>
-  );
-}
+import NavBar from "../components/NavBar";
 
 export default function ProjectDetails() {
   const navigate = useNavigate();
@@ -211,27 +187,25 @@ export default function ProjectDetails() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
-      {/* Header */}
-      <nav className="fixed top-0 w-full bg-slate-900/80 backdrop-blur-lg z-50 border-b border-purple-500/20">
-        <div className="max-w-[1800px] mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate(-1)}
-              className="p-2 hover:bg-slate-800/50 rounded-full transition-colors"
-              aria-label="Go back"
-            >
-              <ArrowLeft size={20} />
-            </button>
-            <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-              AnotherAfternoon.com
-            </div>
-          </div>
-          <HeaderAuth />
+      {/* Navigation Bar */}
+      <NavBar />
+
+      {/* Back button bar */}
+      <div className="fixed top-16 left-0 right-0 z-40 bg-slate-900/60 backdrop-blur-sm border-b border-purple-500/10">
+        <div className="max-w-[1800px] mx-auto px-6 py-2">
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-800/50 rounded-lg transition-colors text-gray-300 hover:text-purple-400"
+            aria-label="Go back"
+          >
+            <ArrowLeft size={18} />
+            <span className="text-sm">Back</span>
+          </button>
         </div>
-      </nav>
+      </div>
 
       {/* Main content grid */}
-      <div className="pt-24 px-6 pb-6">
+      <div className="pt-28 px-6 pb-6">
         <div
           className="
             max-w-[1800px] mx-auto gap-6 h-[calc(100vh-120px)]

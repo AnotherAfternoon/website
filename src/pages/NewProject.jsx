@@ -1,52 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Upload, Image, X, Clock, CheckCircle, Loader2 } from "lucide-react";
-import { SignInButton, UserButton, SignedIn, SignedOut, useAuth } from "@clerk/clerk-react";
+import { SignedIn, SignedOut, useAuth } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
-
-// ---- Header auth (inline for this page) ----
-function HeaderAuth({ onCreateProject, hasEnoughInfo, isCreating }) {
-  return (
-    <>
-      <SignedOut>
-        <SignInButton mode="modal">
-          <button
-            className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full hover:shadow-lg hover:shadow-purple-500/50 transition-all"
-            aria-label="Sign in"
-          >
-            Sign in
-          </button>
-        </SignInButton>
-      </SignedOut>
-
-      <SignedIn>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onCreateProject}
-            disabled={!hasEnoughInfo || isCreating}
-            className={`px-6 py-2 rounded-full transition-all flex items-center gap-2 ${
-              hasEnoughInfo && !isCreating
-                ? "bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-lg hover:shadow-purple-500/50"
-                : "bg-gray-600 cursor-not-allowed opacity-50"
-            }`}
-          >
-            {isCreating ? (
-              <>
-                <Loader2 size={18} className="animate-spin" />
-                Creating...
-              </>
-            ) : (
-              <>
-                <CheckCircle size={18} />
-                Create Project
-              </>
-            )}
-          </button>
-          <UserButton appearance={{ elements: { avatarBox: "ring-2 ring-purple-500/50 rounded-full" } }} />
-        </div>
-      </SignedIn>
-    </>
-  );
-}
+import NavBar from "../components/NavBar";
 
 export default function NewProject() {
   // --- Navigation ---
@@ -204,18 +160,40 @@ export default function NewProject() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
-      {/* Header */}
-      <nav className="fixed top-0 w-full bg-slate-900/80 backdrop-blur-lg z-50 border-b border-purple-500/20">
-        <div className="max-w-[1800px] mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-            AnotherAfternoon.com
+      {/* Navigation Bar */}
+      <NavBar />
+
+      {/* Create Project Action Bar (shown when signed in) */}
+      <SignedIn>
+        <div className="fixed top-16 left-0 right-0 z-40 bg-slate-900/80 backdrop-blur-lg border-b border-purple-500/20">
+          <div className="max-w-[1800px] mx-auto px-6 py-3 flex items-center justify-end">
+            <button
+              onClick={handleCreateProject}
+              disabled={!hasEnoughInfo || isCreating}
+              className={`px-6 py-2 rounded-full transition-all flex items-center gap-2 ${
+                hasEnoughInfo && !isCreating
+                  ? "bg-gradient-to-r from-purple-600 to-pink-600 hover:shadow-lg hover:shadow-purple-500/50"
+                  : "bg-gray-600 cursor-not-allowed opacity-50"
+              }`}
+            >
+              {isCreating ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <CheckCircle size={18} />
+                  Create Project
+                </>
+              )}
+            </button>
           </div>
-          <HeaderAuth onCreateProject={handleCreateProject} hasEnoughInfo={hasEnoughInfo} isCreating={isCreating} />
         </div>
-      </nav>
+      </SignedIn>
 
       {/* Main content grid – responsive */}
-      <div className="pt-24 px-6 pb-6">
+      <div className="pt-28 px-6 pb-6">
         <div
           className="
             max-w-[1800px] mx-auto gap-6 h-[calc(100vh-120px)]
