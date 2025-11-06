@@ -83,13 +83,6 @@ export default function NewProject() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // revoke object URLs on unmount / change
-  useEffect(() => {
-    return () => {
-      uploadedImages.forEach((i) => URL.revokeObjectURL(i.url));
-    };
-  }, [uploadedImages]);
-
   // Simply collect user messages - no API calls
   const handleSendMessage = () => {
     const text = inputMessage.trim();
@@ -165,20 +158,47 @@ export default function NewProject() {
     }
   };
 
-  const handleImageUpload = (e) => {
+  // Helper to convert file to base64
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-    const newImages = files.map((file) => ({
-      id: `${Date.now()}-${Math.random()}`,
-      url: URL.createObjectURL(file),
-      name: file.name,
-    }));
+
+    // Check limit: max 10 images
+    const remainingSlots = 10 - uploadedImages.length;
+    if (remainingSlots <= 0) {
+      alert("Maximum 10 images allowed per project");
+      return;
+    }
+
+    const filesToAdd = files.slice(0, remainingSlots);
+    if (files.length > remainingSlots) {
+      alert(`Only adding ${remainingSlots} image(s). Maximum 10 images allowed per project.`);
+    }
+
+    // Convert all files to base64
+    const base64Promises = filesToAdd.map(async (file) => {
+      const base64 = await fileToBase64(file);
+      return {
+        id: `${Date.now()}-${Math.random()}`,
+        url: base64, // Store base64 instead of blob URL
+        name: file.name,
+      };
+    });
+
+    const newImages = await Promise.all(base64Promises);
     setUploadedImages((imgs) => [...imgs, ...newImages]);
   };
 
   const removeImage = (id) => {
-    const img = uploadedImages.find((i) => i.id === id);
-    if (img) URL.revokeObjectURL(img.url);
     setUploadedImages((imgs) => imgs.filter((i) => i.id !== id));
   };
 
