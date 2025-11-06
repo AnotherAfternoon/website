@@ -8,17 +8,25 @@ import {
   Edit2,
   ArrowLeft,
   Calendar,
-  User
+  User,
+  Loader2
 } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useParams } from "react-router-dom";
+import { useAuth } from "@clerk/clerk-react";
 import NavBar from "../components/NavBar";
 
 export default function ProjectDetails() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { projectId } = useParams();
+  const { getToken } = useAuth();
 
-  // Get data from navigation state (passed from NewProject page)
+  // Get data from navigation state (passed from NewProject page) - used as initial data
   const receivedData = location.state || {};
+
+  // Loading and error states
+  const [loading, setLoading] = useState(!receivedData.projectInfo);
+  const [error, setError] = useState(null);
 
   // Helper function to safely format dates
   const formatDate = (dateValue) => {
@@ -27,145 +35,55 @@ export default function ProjectDetails() {
     return date.toLocaleDateString();
   };
 
-  // Sample project data - used as fallback if no data is passed
-  const defaultProjectInfo = {
-    title: "Kitchen Cabinet Refresh",
-    description: "Refinishing and painting kitchen cabinets to give them a modern farmhouse look. Includes removing hardware, sanding, priming, and applying a fresh coat of paint.",
-    difficulty: "Medium",
-    estimatedTime: "2-4 hours",
-    status: "In Progress",
-    createdBy: "John Doe",
-    createdDate: new Date("2025-10-15"),
-    lastUpdated: new Date("2025-10-28")
-  };
-
-  const defaultSteps = [
-    {
-      id: 1,
-      title: "Remove all cabinet doors and hardware",
-      details: "Use a screwdriver to carefully remove hinges and handles. Label each door for easy reinstallation.",
-      completed: true
-    },
-    {
-      id: 2,
-      title: "Clean and degrease all surfaces",
-      details: "Use TSP cleaner or a degreaser to remove any grease, grime, and buildup from cabinet surfaces.",
-      completed: true
-    },
-    {
-      id: 3,
-      title: "Sand all surfaces thoroughly",
-      details: "Use 120-grit sandpaper to rough up the existing finish. This helps the primer adhere better.",
-      completed: true
-    },
-    {
-      id: 4,
-      title: "Apply primer coat",
-      details: "Use a high-quality bonding primer. Apply thin, even coats and let dry completely (4-6 hours).",
-      completed: false
-    },
-    {
-      id: 5,
-      title: "Apply first coat of paint",
-      details: "Use a foam roller for smooth surfaces and a brush for edges. Allow 24 hours to dry.",
-      completed: false
-    },
-    {
-      id: 6,
-      title: "Light sanding between coats",
-      details: "Lightly sand with 220-grit sandpaper to smooth any imperfections.",
-      completed: false
-    },
-    {
-      id: 7,
-      title: "Apply second coat of paint",
-      details: "Apply final coat ensuring even coverage. Let cure for 48 hours before handling.",
-      completed: false
-    },
-    {
-      id: 8,
-      title: "Reinstall hardware and doors",
-      details: "Once fully cured, reattach all hinges, handles, and cabinet doors.",
-      completed: false
-    }
-  ];
-
-  const defaultImages = [
-    {
-      id: 1,
-      url: "https://images.unsplash.com/photo-1556911220-bff31c812dba?w=400",
-      name: "Before - Cabinet condition",
-      caption: "Original cabinet state"
-    },
-    {
-      id: 2,
-      url: "https://images.unsplash.com/photo-1556909212-d5b604d0c90d?w=400",
-      name: "Hardware removed",
-      caption: "All doors and hardware removed"
-    },
-    {
-      id: 3,
-      url: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400",
-      name: "Sanding progress",
-      caption: "After sanding surfaces"
-    }
-  ];
-
-  const defaultSafetyChecklist = [
-    {
-      id: 1,
-      item: "Wear safety goggles when sanding",
-      checked: true
-    },
-    {
-      id: 2,
-      item: "Use respirator mask in well-ventilated area",
-      checked: true
-    },
-    {
-      id: 3,
-      item: "Wear gloves when handling chemicals and primers",
-      checked: false
-    },
-    {
-      id: 4,
-      item: "Keep work area clear of tripping hazards",
-      checked: false
-    },
-    {
-      id: 5,
-      item: "Store paint and chemicals away from heat sources",
-      checked: false
-    },
-    {
-      id: 6,
-      item: "Have fire extinguisher nearby",
-      checked: true
-    }
-  ];
-
-  // Initialize state with received data or defaults
-  const [projectInfo, setProjectInfo] = useState(receivedData.projectInfo || defaultProjectInfo);
-  const [steps, setSteps] = useState(receivedData.steps || defaultSteps);
-  const [images, setImages] = useState(receivedData.images || defaultImages);
-  const [safetyChecklist, setSafetyChecklist] = useState(receivedData.safetyChecklist || defaultSafetyChecklist);
+  // Initialize state with received data or empty
+  const [projectInfo, setProjectInfo] = useState(receivedData.projectInfo || null);
+  const [steps, setSteps] = useState(receivedData.steps || []);
+  const [images, setImages] = useState(receivedData.images || []);
+  const [safetyChecklist, setSafetyChecklist] = useState(receivedData.safetyChecklist || []);
   const [isEditing, setIsEditing] = useState(false);
 
-  // Update state when navigation data changes
+  // Fetch project data from API
   useEffect(() => {
+    // If we already have data from navigation state, don't fetch
     if (receivedData.projectInfo) {
-      setProjectInfo(receivedData.projectInfo);
+      setLoading(false);
+      return;
     }
-    if (receivedData.steps) {
-      setSteps(receivedData.steps);
-    }
-    if (receivedData.images) {
-      setImages(receivedData.images);
-    }
-    if (receivedData.safetyChecklist) {
-      setSafetyChecklist(receivedData.safetyChecklist);
-    }
-  }, [receivedData]);
+
+    // Fetch from API
+    const fetchProject = async () => {
+      try {
+        setLoading(true);
+        const token = await getToken?.();
+        const API_BASE = import.meta.env.VITE_API_BASE_URL;
+
+        const res = await fetch(`${API_BASE}/v1/projects/${projectId}`, {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+
+        if (!res.ok) {
+          throw new Error(`Failed to fetch project: ${res.status}`);
+        }
+
+        const data = await res.json();
+
+        // Update all state with fetched data
+        setProjectInfo(data.projectInfo);
+        setSteps(data.steps || []);
+        setImages(data.images || []);
+        setSafetyChecklist(data.safetyChecklist || []);
+      } catch (err) {
+        console.error("Error fetching project:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProject();
+  }, [projectId, getToken, receivedData.projectInfo]);
 
   const toggleStepCompletion = (stepId) => {
     setSteps(steps.map(step => 
@@ -185,6 +103,65 @@ export default function ProjectDetails() {
   const checkedSafetyItems = safetyChecklist.filter(i => i.checked).length;
   const safetyPercentage = (checkedSafetyItems / safetyChecklist.length) * 100;
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
+        <NavBar />
+        <div className="pt-28 px-6 pb-6 flex items-center justify-center">
+          <Loader2 size={48} className="animate-spin text-purple-400" />
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
+        <NavBar />
+        <div className="pt-28 px-6 pb-6">
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-8 text-center">
+              <AlertTriangle size={48} className="mx-auto mb-4 text-red-400" />
+              <h2 className="text-2xl font-bold mb-2 text-red-400">Failed to Load Project</h2>
+              <p className="text-gray-400 mb-6">{error}</p>
+              <button
+                onClick={() => navigate("/projects")}
+                className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+              >
+                Back to Projects
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // No project found
+  if (!projectInfo) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
+        <NavBar />
+        <div className="pt-28 px-6 pb-6">
+          <div className="max-w-2xl mx-auto">
+            <div className="bg-slate-800/50 border border-purple-500/20 rounded-2xl p-8 text-center">
+              <h2 className="text-2xl font-bold mb-2 text-gray-300">Project Not Found</h2>
+              <p className="text-gray-400 mb-6">This project doesn't exist or you don't have access to it.</p>
+              <button
+                onClick={() => navigate("/projects")}
+                className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition-colors"
+              >
+                Back to Projects
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white">
       {/* Navigation Bar */}
@@ -194,12 +171,12 @@ export default function ProjectDetails() {
       <div className="fixed top-16 left-0 right-0 z-40 bg-slate-900/60 backdrop-blur-sm border-b border-purple-500/10">
         <div className="max-w-[1800px] mx-auto px-6 py-2">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => navigate("/projects")}
             className="flex items-center gap-2 px-3 py-1.5 hover:bg-slate-800/50 rounded-lg transition-colors text-gray-300 hover:text-purple-400"
             aria-label="Go back"
           >
             <ArrowLeft size={18} />
-            <span className="text-sm">Back</span>
+            <span className="text-sm">Back to Projects</span>
           </button>
         </div>
       </div>
