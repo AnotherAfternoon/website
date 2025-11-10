@@ -3,6 +3,7 @@ import { Send, Upload, Image, X, Clock, CheckCircle, Loader2 } from "lucide-reac
 import { SignedIn, SignedOut, useAuth } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
 import NavBar from "../components/NavBar";
+import ConsentModal from "../components/ConsentModal";
 
 export default function NewProject() {
   // --- Navigation ---
@@ -33,6 +34,35 @@ export default function NewProject() {
   // Track if project is being created
   const [isCreating, setIsCreating] = useState(false);
 
+  // Consent modal state
+  const [showConsent, setShowConsent] = useState(false);
+  const [consentVersion, setConsentVersion] = useState("v1.0");
+
+  // Check consent status on mount
+  useEffect(() => {
+    const checkConsentStatus = async () => {
+      try {
+        const token = await getToken?.();
+        const API_BASE = import.meta.env.VITE_API_BASE_URL;
+
+        const res = await fetch(`${API_BASE}/v1/consent/status`, {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setConsentVersion(data.currentVersion);
+          // If user hasn't consented to current version, modal will show when they click "Create Project"
+        }
+      } catch (error) {
+        console.error("Error checking consent status:", error);
+      }
+    };
+
+    checkConsentStatus();
+  }, [getToken]);
 
   // autoscroll chat
   useEffect(() => {
@@ -49,14 +79,37 @@ export default function NewProject() {
     setInputMessage("");
   };
 
-  // Handle Create Project button click
-  const handleCreateProject = async () => {
+  // Handle Create Project button click - show consent modal
+  const handleCreateProjectClick = () => {
+    setShowConsent(true);
+  };
+
+  // Handle project creation after consent is given
+  const handleCreateProjectAfterConsent = async () => {
     setIsCreating(true);
 
     try {
       // Get authentication token
       const token = await getToken?.();
       const API_BASE = import.meta.env.VITE_API_BASE_URL;
+
+      // Record consent acceptance
+      const consentRes = await fetch(`${API_BASE}/v1/consent/accept`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          consentVersion,
+          ipAddress: null, // Could add IP detection if needed
+          userAgent: navigator.userAgent,
+        }),
+      });
+
+      if (!consentRes.ok) {
+        throw new Error("Failed to record consent");
+      }
 
       // Collect all user input
       const projectData = {
@@ -128,16 +181,16 @@ export default function NewProject() {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    // Check limit: max 10 images
-    const remainingSlots = 10 - uploadedImages.length;
+    // Check limit: max 2 images
+    const remainingSlots = 2 - uploadedImages.length;
     if (remainingSlots <= 0) {
-      alert("Maximum 10 images allowed per project");
+      alert("Maximum 2 images allowed per project");
       return;
     }
 
     const filesToAdd = files.slice(0, remainingSlots);
     if (files.length > remainingSlots) {
-      alert(`Only adding ${remainingSlots} image(s). Maximum 10 images allowed per project.`);
+      alert(`Only adding ${remainingSlots} image(s). Maximum 2 images allowed per project.`);
     }
 
     // Convert all files to base64
@@ -168,7 +221,7 @@ export default function NewProject() {
         <div className="fixed top-16 left-0 right-0 z-40 bg-slate-900/80 backdrop-blur-lg border-b border-purple-500/20">
           <div className="max-w-[1800px] mx-auto px-6 py-3 flex items-center justify-end">
             <button
-              onClick={handleCreateProject}
+              onClick={handleCreateProjectClick}
               disabled={!hasEnoughInfo || isCreating}
               className={`px-6 py-2 rounded-full transition-all flex items-center gap-2 ${
                 hasEnoughInfo && !isCreating
@@ -400,6 +453,14 @@ export default function NewProject() {
           </aside>
         </div>
       </div>
+
+      {/* Consent Modal */}
+      <ConsentModal
+        isOpen={showConsent}
+        onClose={() => setShowConsent(false)}
+        onConsent={handleCreateProjectAfterConsent}
+        version={consentVersion}
+      />
     </div>
   );
 }
