@@ -9,17 +9,26 @@ import {
   ArrowLeft,
   Calendar,
   User,
-  Loader2
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+  Wrench,
+  Package,
+  ShieldAlert,
+  Lightbulb,
+  AlertCircle
 } from "lucide-react";
 import { useNavigate, useLocation, useParams } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 import NavBar from "../components/NavBar";
+import { useCredits } from "../contexts/CreditsContext";
 
 export default function ProjectDetails() {
   const navigate = useNavigate();
   const location = useLocation();
   const { projectId } = useParams();
   const { getToken } = useAuth();
+  const { refreshCredits } = useCredits();
 
   // Get data from navigation state (passed from NewProject page) - used as initial data
   const receivedData = location.state || {};
@@ -41,6 +50,11 @@ export default function ProjectDetails() {
   const [images, setImages] = useState(receivedData.images || []);
   const [safetyChecklist, setSafetyChecklist] = useState(receivedData.safetyChecklist || []);
   const [isEditing, setIsEditing] = useState(false);
+
+  // Step expansion state
+  const [expandedSteps, setExpandedSteps] = useState({}); // { stepId: detailedData }
+  const [loadingSteps, setLoadingSteps] = useState({}); // { stepId: true/false }
+  const [expandErrors, setExpandErrors] = useState({}); // { stepId: errorMessage }
 
   // Fetch project data from API
   useEffect(() => {
@@ -85,8 +99,25 @@ export default function ProjectDetails() {
     fetchProject();
   }, [projectId, getToken, receivedData.projectInfo]);
 
+  // Initialize expandedSteps from steps that already have expanded data
+  useEffect(() => {
+    const initialExpanded = {};
+    steps.forEach(step => {
+      if (step.expanded) {
+        initialExpanded[step.id] = {
+          stepId: step.id,
+          title: step.title,
+          ...step.expanded
+        };
+      }
+    });
+    if (Object.keys(initialExpanded).length > 0) {
+      setExpandedSteps(initialExpanded);
+    }
+  }, [steps]);
+
   const toggleStepCompletion = (stepId) => {
-    setSteps(steps.map(step => 
+    setSteps(steps.map(step =>
       step.id === stepId ? { ...step, completed: !step.completed } : step
     ));
   };
@@ -95,6 +126,58 @@ export default function ProjectDetails() {
     setSafetyChecklist(safetyChecklist.map(item =>
       item.id === itemId ? { ...item, checked: !item.checked } : item
     ));
+  };
+
+  const toggleStepExpansion = async (stepId) => {
+    // If already expanded, collapse it
+    if (expandedSteps[stepId]) {
+      setExpandedSteps(prev => {
+        const newState = { ...prev };
+        delete newState[stepId];
+        return newState;
+      });
+      return;
+    }
+
+    // Otherwise, expand it by fetching details
+    setLoadingSteps(prev => ({ ...prev, [stepId]: true }));
+    setExpandErrors(prev => {
+      const newState = { ...prev };
+      delete newState[stepId];
+      return newState;
+    });
+
+    try {
+      const token = await getToken?.();
+      const API_BASE = import.meta.env.VITE_API_BASE_URL;
+
+      const res = await fetch(`${API_BASE}/v1/projects/expand-step`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          projectId: projectId,
+          stepId: stepId,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to expand step: ${res.status}`);
+      }
+
+      const detailedStep = await res.json();
+      setExpandedSteps(prev => ({ ...prev, [stepId]: detailedStep }));
+
+      // Refresh credit balance after successful expansion
+      refreshCredits();
+    } catch (err) {
+      console.error("Error expanding step:", err);
+      setExpandErrors(prev => ({ ...prev, [stepId]: err.message }));
+    } finally {
+      setLoadingSteps(prev => ({ ...prev, [stepId]: false }));
+    }
   };
 
   const completedSteps = steps.filter(s => s.completed).length;
@@ -345,39 +428,205 @@ export default function ProjectDetails() {
             {/* Steps list */}
             <div className="flex-1 overflow-y-auto p-6">
               <div className="space-y-4">
-                {steps.map((step, idx) => (
-                  <div
-                    key={step.id}
-                    onClick={() => toggleStepCompletion(step.id)}
-                    className={`bg-slate-700/30 rounded-lg p-5 border transition-all cursor-pointer ${
-                      step.completed
-                        ? "border-purple-500/30 opacity-75"
-                        : "border-purple-500/10 hover:border-purple-500/30"
-                    }`}
-                  >
-                    <div className="flex items-start gap-4">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
-                        step.completed 
-                          ? "bg-purple-600/40 ring-2 ring-purple-500/50" 
-                          : "bg-slate-700/50 border-2 border-purple-500/30"
-                      }`}>
-                        {step.completed ? (
-                          <CheckCircle size={18} className="text-purple-300" />
-                        ) : (
-                          <span className="text-sm font-semibold">{idx + 1}</span>
-                        )}
+                {steps.map((step, idx) => {
+                  const isExpanded = expandedSteps[step.id];
+                  const isLoading = loadingSteps[step.id];
+                  const hasError = expandErrors[step.id];
+
+                  return (
+                    <div
+                      key={step.id}
+                      className={`bg-slate-700/30 rounded-lg border transition-all ${
+                        step.completed
+                          ? "border-purple-500/30 opacity-75"
+                          : "border-purple-500/10"
+                      }`}
+                    >
+                      {/* Step Header */}
+                      <div className="p-5">
+                        <div className="flex items-start gap-4">
+                          {/* Checkbox */}
+                          <div
+                            onClick={() => toggleStepCompletion(step.id)}
+                            className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-colors cursor-pointer ${
+                              step.completed
+                                ? "bg-purple-600/40 ring-2 ring-purple-500/50"
+                                : "bg-slate-700/50 border-2 border-purple-500/30 hover:border-purple-500/50"
+                            }`}
+                          >
+                            {step.completed ? (
+                              <CheckCircle size={18} className="text-purple-300" />
+                            ) : (
+                              <span className="text-sm font-semibold">{idx + 1}</span>
+                            )}
+                          </div>
+
+                          {/* Step Content */}
+                          <div className="flex-1">
+                            <h3 className={`font-semibold mb-2 ${step.completed ? "line-through text-gray-400" : "text-gray-200"}`}>
+                              {step.title}
+                            </h3>
+                            <p className={`text-sm leading-relaxed ${step.completed ? "text-gray-500" : "text-gray-400"}`}>
+                              {step.details}
+                            </p>
+                          </div>
+
+                          {/* Expand Button */}
+                          <button
+                            onClick={() => toggleStepExpansion(step.id)}
+                            disabled={isLoading}
+                            className={`flex-shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors flex items-center gap-1.5 ${
+                              isExpanded
+                                ? "bg-purple-600/20 text-purple-300 hover:bg-purple-600/30"
+                                : "bg-slate-600/50 text-gray-300 hover:bg-slate-600/70"
+                            } ${isLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+                          >
+                            {isLoading ? (
+                              <>
+                                <Loader2 size={14} className="animate-spin" />
+                                <span>Loading...</span>
+                              </>
+                            ) : isExpanded ? (
+                              <>
+                                <ChevronUp size={14} />
+                                <span>Hide Details</span>
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown size={14} />
+                                <span>Show Details</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex-1">
-                        <h3 className={`font-semibold mb-2 ${step.completed ? "line-through text-gray-400" : "text-gray-200"}`}>
-                          {step.title}
-                        </h3>
-                        <p className={`text-sm leading-relaxed ${step.completed ? "text-gray-500" : "text-gray-400"}`}>
-                          {step.details}
-                        </p>
-                      </div>
+
+                      {/* Error State */}
+                      {hasError && (
+                        <div className="px-5 pb-5">
+                          <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-sm text-red-400 flex items-start gap-2">
+                            <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+                            <span>Failed to load details: {hasError}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Expanded Details */}
+                      {isExpanded && (
+                        <div className="px-5 pb-5 space-y-4 border-t border-slate-600/30 pt-4">
+                          {/* Detailed Instructions */}
+                          <div>
+                            <h4 className="text-sm font-semibold text-purple-300 mb-2">Detailed Instructions</h4>
+                            <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-line">
+                              {isExpanded.detailedInstructions}
+                            </p>
+                          </div>
+
+                          {/* Substeps */}
+                          {isExpanded.substeps && isExpanded.substeps.length > 0 && (
+                            <div>
+                              <h4 className="text-sm font-semibold text-purple-300 mb-2">Step-by-Step</h4>
+                              <ol className="space-y-2">
+                                {isExpanded.substeps.map((substep, i) => (
+                                  <li key={i} className="text-sm text-gray-300 flex gap-2">
+                                    <span className="text-purple-400 font-semibold">{i + 1}.</span>
+                                    <span>{substep}</span>
+                                  </li>
+                                ))}
+                              </ol>
+                            </div>
+                          )}
+
+                          {/* Tools & Materials Grid */}
+                          <div className="grid grid-cols-2 gap-4">
+                            {/* Tools */}
+                            {isExpanded.toolsNeeded && isExpanded.toolsNeeded.length > 0 && (
+                              <div className="bg-slate-600/20 rounded-lg p-3">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Wrench size={14} className="text-purple-400" />
+                                  <h4 className="text-xs font-semibold text-purple-300">Tools Needed</h4>
+                                </div>
+                                <ul className="space-y-1">
+                                  {isExpanded.toolsNeeded.map((tool, i) => (
+                                    <li key={i} className="text-xs text-gray-400">• {tool}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+
+                            {/* Materials */}
+                            {isExpanded.materialsNeeded && isExpanded.materialsNeeded.length > 0 && (
+                              <div className="bg-slate-600/20 rounded-lg p-3">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Package size={14} className="text-purple-400" />
+                                  <h4 className="text-xs font-semibold text-purple-300">Materials Needed</h4>
+                                </div>
+                                <ul className="space-y-1">
+                                  {isExpanded.materialsNeeded.map((material, i) => (
+                                    <li key={i} className="text-xs text-gray-400">• {material}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Safety Precautions */}
+                          {isExpanded.safetyPrecautions && isExpanded.safetyPrecautions.length > 0 && (
+                            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <ShieldAlert size={14} className="text-yellow-400" />
+                                <h4 className="text-xs font-semibold text-yellow-300">Safety Precautions</h4>
+                              </div>
+                              <ul className="space-y-1">
+                                {isExpanded.safetyPrecautions.map((precaution, i) => (
+                                  <li key={i} className="text-xs text-gray-300">• {precaution}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Common Mistakes */}
+                          {isExpanded.commonMistakes && isExpanded.commonMistakes.length > 0 && (
+                            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <AlertCircle size={14} className="text-red-400" />
+                                <h4 className="text-xs font-semibold text-red-300">Common Mistakes to Avoid</h4>
+                              </div>
+                              <ul className="space-y-1">
+                                {isExpanded.commonMistakes.map((mistake, i) => (
+                                  <li key={i} className="text-xs text-gray-300">• {mistake}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Pro Tips */}
+                          {isExpanded.proTips && isExpanded.proTips.length > 0 && (
+                            <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Lightbulb size={14} className="text-blue-400" />
+                                <h4 className="text-xs font-semibold text-blue-300">Pro Tips</h4>
+                              </div>
+                              <ul className="space-y-1">
+                                {isExpanded.proTips.map((tip, i) => (
+                                  <li key={i} className="text-xs text-gray-300">• {tip}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Time Estimate */}
+                          {isExpanded.estimatedTime && (
+                            <div className="flex items-center gap-2 text-xs text-gray-400">
+                              <Clock size={14} />
+                              <span>Estimated time: {isExpanded.estimatedTime}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </main>

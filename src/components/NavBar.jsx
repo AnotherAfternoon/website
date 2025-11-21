@@ -1,10 +1,11 @@
-import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { UserButton, useUser } from '@clerk/clerk-react';
+import { Coins } from 'lucide-react';
+import { useCredits } from '../contexts/CreditsContext';
 
 export default function NavBar() {
-  const navigate = useNavigate();
   const { isSignedIn } = useUser();
+  const { credits, loading } = useCredits();
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-gray-900 via-purple-900 to-gray-900 border-b border-purple-500/20 backdrop-blur-sm">
@@ -34,6 +35,23 @@ export default function NavBar() {
                 >
                   New Project
                 </Link>
+
+                {/* Credit Balance */}
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-900/30 border border-purple-500/30 rounded-lg">
+                  <Coins className="w-4 h-4 text-yellow-400" />
+                  {loading ? (
+                    <span className="text-sm text-gray-400">...</span>
+                  ) : credits ? (
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm font-semibold text-white">
+                        {credits.balance}
+                      </span>
+                      <span className="text-xs text-gray-400">credits</span>
+                    </div>
+                  ) : (
+                    <span className="text-sm text-gray-400">--</span>
+                  )}
+                </div>
               </>
             )}
 

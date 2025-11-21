@@ -4,11 +4,13 @@ import { SignedIn, SignedOut, useAuth } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
 import NavBar from "../components/NavBar";
 import ConsentModal from "../components/ConsentModal";
+import { useCredits } from "../contexts/CreditsContext";
 
 export default function NewProject() {
   // --- Navigation ---
   const navigate = useNavigate();
   const { getToken } = useAuth();
+  const { refreshCredits } = useCredits();
 
   const [projectInfo, setProjectInfo] = useState({
     title: "New Home Project",
@@ -149,6 +151,9 @@ export default function NewProject() {
       //   images: [{ id, url, name, caption }],
       //   safetyChecklist: [{ id, item, checked }]
       // }
+
+      // Refresh credit balance after successful project creation
+      refreshCredits();
 
       // Navigate to ProjectDetails page with the generated project data
       navigate(`/projects/${responseData.projectId}`, {
