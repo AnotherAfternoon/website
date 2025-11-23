@@ -21,6 +21,12 @@ export default function NavBar() {
 
           {/* Navigation Links */}
           <div className="flex items-center gap-6">
+            <Link
+              to="/about"
+              className="text-gray-300 hover:text-purple-400 transition-colors duration-200 font-medium"
+            >
+              About
+            </Link>
             {isSignedIn && (
               <>
                 <Link
