@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom';
 import { Home, CheckCircle, Clock, Shield, FileText, Lightbulb } from 'lucide-react';
+import NavBar from '../components/NavBar';
 
 export default function About() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
-      <div className="max-w-4xl mx-auto px-4 py-16">
+      <NavBar />
+      <div className="max-w-4xl mx-auto px-4 py-16 pt-24">
         {/* Hero Section */}
         <div className="text-center mb-16">
           <h1 className="text-5xl font-bold text-white mb-6">
