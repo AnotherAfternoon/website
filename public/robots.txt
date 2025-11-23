@@ -1,0 +1,10 @@
+# Allow all search engines to crawl the site
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://anotherafternoon.com/sitemap.xml
+
+# Disallow crawling of user-specific pages
+Disallow: /projects/
+Disallow: /new-project
